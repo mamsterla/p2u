@@ -82,22 +82,6 @@ var UniqueController = function($scope, $rootScope, $http){
 	              $('.loadingMask').show();
 	              callServerGETAPI(httpPromise, submiProfileAPI, showTableData);
 	          }
-					case '#myPresidentsForm':
-        		var submiProfileAPI = '/getPath2Presidents?'+getFormData;
-	          if($scope.myPresidentsForm.$valid){
-	              $scope.loading = true;
-	              $('.loadingMask').show();
-	              callServerGETAPI(httpPromise, submiProfileAPI, showTableData);
-	          }
-						break;
-					case '#myMonarchsForm':
-        		var submiProfileAPI = '/getPath2Monarchs?'+getFormData;
-	          if($scope.myMonarchsForm.$valid){
-	              $scope.loading = true;
-	              $('.loadingMask').show();
-	              callServerGETAPI(httpPromise, submiProfileAPI, showTableData);
-	          }
-						break;
 					case '#myProjectsForm':
         		var submiProfileAPI = '/getPath2Projects?'+getFormData;
 	          if($scope.myProjectsForm.$valid){
@@ -145,36 +129,6 @@ var UniqueController = function($scope, $rootScope, $http){
                 setTimeout(function(){
                     $scope.myProfileFormSuccessMsg = false;
                     $('#myProfileFormSuccessMsg').fadeOut('slow');
-                }, 5000);
-            };
-            $scope.showTableDataMyProfile = true;
-            $scope.myProfileForm.emailField = null;
-						break;
-        	case '#myPresidentsForm':
-            $scope.myPresidentsData = responseData;
-            console.log(!angular.isUndefined($scope.myPresidentsData.backgroundMessage));
-            if(!angular.isUndefined($scope.myPresidentsData.backgroundMessage)){
-                $scope.myPresidentsFormSuccessMsg = true;
-                $('#myPresidentsFormSuccessMsg').html($scope.myPresidentsData.backgroundMessage);
-                $('#myPresidentsFormSuccessMsg').css("background-color","#00BFFF");
-                setTimeout(function(){
-                    $scope.myPresidentsFormSuccessMsg = false;
-                    $('#myPresidentsFormSuccessMsg').fadeOut('slow');
-                }, 5000);
-            };
-            $scope.showTableDataMyProfile = true;
-            $scope.myProfileForm.emailField = null;
-						break;
-        	case '#myMonarchsForm':
-            $scope.myMonarchsData = responseData;
-            console.log(!angular.isUndefined($scope.myMonarchsData.backgroundMessage));
-            if(!angular.isUndefined($scope.myMonarchsData.backgroundMessage)){
-                $scope.myMonarchsFormSuccessMsg = true;
-                $('#myMonarchsFormSuccessMsg').html($scope.myMonarchsData.backgroundMessage);
-                $('#myMonarchsFormSuccessMsg').css("background-color","#00BFFF");
-                setTimeout(function(){
-                    $scope.myMonarchsFormSuccessMsg = false;
-                    $('#myMonarchsFormSuccessMsg').fadeOut('slow');
                 }, 5000);
             };
             $scope.showTableDataMyProfile = true;

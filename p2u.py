@@ -124,12 +124,12 @@ def get_path_to_user():
     target_profile_id = request.args.get('targetProfile')
     other_id = request.args.get('otherId')
     if my_profile_flag == 'true':
-        profile_obj = get_profile_details(session['access_token'], session['refresh_token'])
+        (session['access_token'], session['refresh_token'], profile_obj) = get_profile_details(session['access_token'], session['refresh_token'])
         LOGGER.info('getPath2User guid found: %s', profile_obj['guid'])
         return process_path_to_user(target_profile_id, profile_obj['guid'], email)
     else:
         #Other profiles
-        profile_data_text = get_other_profile(session['access_token'], other_id)
+        (session['access_token'], session['refresh_token'], profile_data_text) = get_other_profile(session['access_token'], session['refresh_token'], other_id)
         profile_data = json.loads(profile_data_text)
         check_id = profile_data.get('id')
         if check_id == None:
@@ -183,12 +183,12 @@ def create_p2u_background_job(params):
             params['access_token'] = data['access_token']
             params['refresh_token'] = data['refresh_token']
             # load source and target names
-            source_obj = get_other_profile(params['access_token'], params['other_id'])
+            (params['access_token'], params['refresh_token'], source_obj) = get_other_profile(params['access_token'], params['refresh_token'], params['other_id'])
             profile_data = json.loads(source_obj)
             LOGGER.info('Source profile data returned: %s', source_obj)
             data['source_name'] = profile_data.get('name', '(unknown)')
             data['source_url'] = profile_data['profile_url']
-            target_obj = get_other_profile(params['access_token'], params['target_profile_id'])
+            (params['access_token'], params['refresh_token'], target_obj) = get_other_profile(params['access_token'], params['refresh_token'], params['target_profile_id'])
             profile_data = json.loads(target_obj)
             LOGGER.info('Target profile data returned: %s', target_obj)
             data['target_name'] = profile_data['name']
@@ -221,7 +221,7 @@ def get_profile():
         pass
 
     try:
-        profile_data = get_profile_details(access_token, refresh_token, profile_id, 0)
+        (session['access_token'], session['refresh_token'], profile_data) = get_profile_details(access_token, refresh_token, profile_id, 0)
         if profile_id == None:
             session['loginProfileId'] = profile_data['id']
         if profile_data != None:
@@ -256,18 +256,18 @@ def get_path_to_projects():
     other_id = request.args.get('otherId')
     my_projects_flag = request.args.get('myProjects')
     project_id = request.args.get('project_id')
-    (project_name, guids) = get_geni_project_guids(session['access_token'], session['refresh_token'], project_id)
+    (session['access_token'], session['refresh_token'], project_name, guids) = get_geni_project_guids(session['access_token'], session['refresh_token'], project_id)
     return handleSet(email, my_projects_flag, other_id, guids, project_name, True)
 
 def handleSet(email, my_flag, other_id, guids, set_name, sort_by_steps):
     # handle case where we are implicit
     if my_flag == 'true':
-        profile_obj = get_profile_details(session['access_token'], session['refresh_token'])
+        (session['access_token'], session['refresh_token'], profile_obj) = get_profile_details(session['access_token'], session['refresh_token'])
         LOGGER.info('handleSet guid found: %s', profile_obj['guid'])
         profile_id = profile_obj['guid']
     else:
         #Other profiles
-        profile_data_text = get_other_profile(session['access_token'], other_id)
+        (session['access_token'], session['refresh_token'], profile_data_text) = get_other_profile(session['access_token'], session['refresh_token'], other_id)
         profile_data = json.loads(profile_data_text)
         check_id = profile_data.get('id')
         if check_id == None:
@@ -306,7 +306,7 @@ def create_sets_background_job(params):
 
     data = {}
     data['source_id'] = params['other_id']
-    source_obj = get_other_profile(params['access_token'], params['other_id'])
+    (params['access_token'], params['refresh_token'], source_obj) = get_other_profile(params['access_token'], params['refresh_token'], params['other_id'])
     profile_data = json.loads(source_obj)
     LOGGER.info('Source profile data returned: %s', source_obj)
     data['source_name'] = profile_data.get('name', '(unknown)')
@@ -355,9 +355,9 @@ def create_single_path_background_job(params):
             continue_flag = False
         else:
             time.sleep(10)
-    target_obj = get_other_profile(params['access_token'], params['guid'])
-    profile_data = json.loads(target_obj)
-    LOGGER.info('Target profile data returned: %s', target_obj)
+    (params['access_token'], params['refresh_token'], target_text) = get_other_profile(params['access_token'], params['refresh_token'], params['guid'])
+    profile_data = json.loads(target_text)
+    LOGGER.info('Target profile data returned: %s', target_text)
     set_data['target_name'] = profile_data['name']
     set_data['target_url'] = profile_data['profile_url']
     if (str(set_data['status']) != 'not found' and str(set_data['status']) != 'done'):

@@ -69,94 +69,21 @@ def get_refreshed_token(refresh_token):
 
 def get_profile_details(access_token, refresh_token):
     """Get the profile details for the logged in account"""
-    global GENI_API_SLEEP_REMAINING, GENI_API_SLEEP_WINDOW, GENI_API_SLEEP_LIMIT
-    payload = {'access_token':access_token}
-    if 0 == GENI_API_SLEEP_REMAINING:
-        LOGGER.debug('sleeping before geni api calling')
-        time.sleep(GENI_API_SLEEP_WINDOW)
-        GENI_API_SLEEP_REMAINING = GENI_API_SLEEP_LIMIT
-
-    continue_flag = True
     profile_object = None
-    new_access_token = None
-    new_refresh_token = None
-    while continue_flag:
-        try:
-            profile_response = requests.get(PROF_URL, params=payload)
-            LOGGER.debug("Header X-API-Rate-Limit: %s", profile_response.headers['X-API-Rate-Limit'])
-            LOGGER.debug("Header X-API-Rate-Remaining: %s", profile_response.headers['X-API-Rate-Remaining'])
-            LOGGER.debug("Header X-API-Rate-Window: %s", profile_response.headers['X-API-Rate-Window'])
-            GENI_API_SLEEP_LIMIT = int(profile_response.headers['X-API-Rate-Limit'])
-            GENI_API_SLEEP_REMAINING = int(profile_response.headers['X-API-Rate-Remaining'])
-            GENI_API_SLEEP_WINDOW = int(profile_response.headers['X-API-Rate-Window'])
-            profile_object = get_profile_obj(profile_response.text)
-            if profile_object['status'] == 'API_ERROR':
-                time.sleep(10)
-            else:
-                continue_flag = False
-        except GeniOAuthError as goae:
-            LOGGER.error('Geni oauth error - %s', goae)
-            token_text = get_refreshed_token(refresh_token)
-            LOGGER.debug('get_refreshed_token returned: %s', token_text)
-            token_response = json.loads(token_text)
-            access_token = new_access_token = token_response['access_token']
-            refresh_token = new_refresh_token = token_response['refresh_token']
-            payload = {'access_token':new_access_token}
-        except:     #Catch all errors
-            LOGGER.exception('Geni api connection error...retrying: ')
-            time.sleep(5)
+    (access_token, refresh_token, profile_response) = geni_api_call(access_token, refresh_token, PROF_URL)
+    if (profile_response):
+        profile_object = get_profile_obj(profile_response.text)
+    return access_token, refresh_token, profile_object
 
-    profile_object['access_token'] = new_access_token if new_access_token != None else access_token
-    profile_object['refresh_token'] = new_refresh_token if new_refresh_token != None else refresh_token
-    return profile_object
-
-def get_other_profile(access_token, guid):
+def get_other_profile(access_token, refresh_token, guid):
     """Retrieve the profile of the non-logged in user as specified"""
     LOGGER.debug("get_other_profile")
-
-    global GENI_API_SLEEP_REMAINING, GENI_API_SLEEP_WINDOW, GENI_API_SLEEP_LIMIT
-    payload = {'access_token':access_token}
-    if 0 == GENI_API_SLEEP_REMAINING:
-        LOGGER.debug('sleeping before geni api calling')
-        time.sleep(GENI_API_SLEEP_WINDOW)
-        GENI_API_SLEEP_REMAINING = GENI_API_SLEEP_LIMIT
-
-    retry_count = 0
-    continue_flag = True
-    profile_text = ""
-    while continue_flag and retry_count < 5:
-        try:
-            url = OTHERS_URL.replace('{guid}', guid)
-            profile_response = requests.get(url, params=payload)
-            LOGGER.debug("Header X-API-Rate-Limit: %s", profile_response.headers['X-API-Rate-Limit'])
-            LOGGER.debug("Header X-API-Rate-Remaining: %s", profile_response.headers['X-API-Rate-Remaining'])
-            LOGGER.debug("Header X-API-Rate-Window: %s", profile_response.headers['X-API-Rate-Window'])
-            GENI_API_SLEEP_LIMIT = int(profile_response.headers['X-API-Rate-Limit'])
-            GENI_API_SLEEP_REMAINING = int(profile_response.headers['X-API-Rate-Remaining'])
-            GENI_API_SLEEP_WINDOW = int(profile_response.headers['X-API-Rate-Window'])
-            if (profile_response.status_code != 200 or len(profile_response.text) < 16):
-                LOGGER.error("Could not retrieve profile: %d - attempt %d url - %s", profile_response.status_code, retry_count, url)
-                retry_count = retry_count + 1
-                time.sleep(5)
-            else:
-                continue_flag = False
-                profile_text = profile_response.text
-        except GeniOAuthError as goae:
-            LOGGER.error('Geni oauth error - %s', goae)
-            token_text = get_refreshed_token(refresh_token)
-            LOGGER.debug('get_refreshed_token returned: %s', token_text)
-            token_response = json.loads(token_text)
-            access_token = new_access_token = token_response['access_token']
-            refresh_token = new_refresh_token = token_response['refresh_token']
-            payload = {'access_token':new_access_token}
-        except requests.exceptions.HTTPError as err:
-            LOGGER.exception('Geni api error %s ', err)
-            continue_flag = False
-        except Exception as err:     #Catch all errors
-            continue_flag = False
-            LOGGER.exception('Geni api connection error...retrying: %s', err)
-            time.sleep(5)
-    return profile_text
+    url = OTHERS_URL.replace('{guid}', guid)
+    (access_token, refresh_token, profile_response) = geni_api_call(access_token, refresh_token, url)
+    profile_text = None
+    if (profile_response):
+        profile_text = profile_response.text
+    return access_token, refresh_token, profile_text
 
 def get_profile_obj(profile_response):
     """Parse the JSON profile response and build return object"""
@@ -187,59 +114,15 @@ def get_profile_obj(profile_response):
 def get_geni_path_to(access_token, refresh_token, source_id, target_id):
     """Get the path to user for this source and target"""
     assert (source_id != target_id), "get_geni_path_to equal ids passed"
-    global GENI_API_SLEEP_REMAINING, GENI_API_SLEEP_WINDOW, GENI_API_SLEEP_LIMIT
-    payload = {'access_token':access_token}
-    if 0 == GENI_API_SLEEP_REMAINING:
-        LOGGER.debug('sleeping before geni api calling')
-        time.sleep(GENI_API_SLEEP_WINDOW)
-        GENI_API_SLEEP_REMAINING = GENI_API_SLEEP_LIMIT
-
-    continue_flag = True
-    profile_object = None
-    new_access_token = None
-    new_refresh_token = None
+    url = PATH_TO_URL
+    url = url.replace('{source}', source_id)
+    url = url.replace('{target}', target_id)
+    (access_token, refresh_token, path_response) = geni_api_call(access_token, refresh_token, url)
     path_object = {}
-    while continue_flag:
-        try:
-            url = PATH_TO_URL
-            url = url.replace('{source}', source_id)
-            url = url.replace('{target}', target_id)
-            LOGGER.info('get_geni_path_to with urls: %s', url)
-            path_response = requests.get(url, params=payload)
-            LOGGER.info("Header X-API-Rate-Limit: %s", path_response.headers['X-API-Rate-Limit'])
-            LOGGER.info("Header X-API-Rate-Remaining: %s", path_response.headers['X-API-Rate-Remaining'])
-            LOGGER.info("Header X-API-Rate-Window: %s", path_response.headers['X-API-Rate-Window'])
-            GENI_API_SLEEP_LIMIT = int(path_response.headers['X-API-Rate-Limit'])
-            GENI_API_SLEEP_REMAINING = int(path_response.headers['X-API-Rate-Remaining'])
-            GENI_API_SLEEP_WINDOW = int(path_response.headers['X-API-Rate-Window'])
-            LOGGER.info('Geni path-to returned %s', path_response.text)
-            path_object = get_path_obj(path_response.text)
-            if (path_object['status'] == 'API_ERROR' and path_object['error']['message'] == 'Rate limit exceeded.'):
-                time.sleep(10)
-            elif (path_object['status'] == 'API_ERROR'):
-                path_object.raise_for_status()
-                continue_flag = False
-            else:
-                continue_flag = False
-        except GeniOAuthError as goae:
-            LOGGER.error('Geni oauth error - %s', goae)
-            token_text = get_refreshed_token(refresh_token)
-            LOGGER.debug('get_refreshed_token returned: %s', token_text)
-            token_response = json.loads(token_text)
-            access_token = new_access_token = token_response['access_token']
-            refresh_token = new_refresh_token = token_response['refresh_token']
-            payload = {'access_token':new_access_token}
-        except requests.exceptions.HTTPError as err:
-            LOGGER.exception('Geni api error %s ', err)
-            path_object['status'] = 'error'
-            continue_flag = False
-        except:     #Catch all errors
-            continue_flag = False
-            LOGGER.exception('Geni api connection error...retrying: ')
-            path_object['status'] = 'error'
-
-    path_object['access_token'] = new_access_token if new_access_token != None else access_token
-    path_object['refresh_token'] = new_refresh_token if new_refresh_token != None else refresh_token
+    if (path_response):
+        path_object = get_path_obj(path_response.text)
+        path_object['access_token'] = access_token
+        path_object['refresh_token'] = refresh_token
     return path_object
 
 def get_path_obj(path_response):
@@ -262,79 +145,31 @@ def get_path_obj(path_response):
 
 def get_geni_project_guids(access_token, refresh_token, project_id):
     """Get the guids for a given project number"""
-    global GENI_API_SLEEP_REMAINING, GENI_API_SLEEP_WINDOW, GENI_API_SLEEP_LIMIT
     page_number = 1
     total_count = 0
     guids = []
-    payload = {'access_token':access_token}
-    if 0 == GENI_API_SLEEP_REMAINING:
-        LOGGER.debug('sleeping before geni api calling')
-        time.sleep(GENI_API_SLEEP_WINDOW)
-        GENI_API_SLEEP_REMAINING = GENI_API_SLEEP_LIMIT
-
-    continue_flag = True
-    new_access_token = None
-    new_refresh_token = None
     project_name = None
-    while continue_flag:
-        try:
-            data = {}
-            url = PROJECT_NAME_URL
-            url = url.replace('{project}', str(project_id))
-            LOGGER.info('get_geni_project_guids with urls: %s', url)
-            project_response = requests.get(url, params=payload)
-            LOGGER.info("Header X-API-Rate-Limit: %s", project_response.headers['X-API-Rate-Limit'])
-            LOGGER.info("Header X-API-Rate-Remaining: %s", project_response.headers['X-API-Rate-Remaining'])
-            LOGGER.info("Header X-API-Rate-Window: %s", project_response.headers['X-API-Rate-Window'])
-            GENI_API_SLEEP_LIMIT = int(project_response.headers['X-API-Rate-Limit'])
-            GENI_API_SLEEP_REMAINING = int(project_response.headers['X-API-Rate-Remaining'])
-            GENI_API_SLEEP_WINDOW = int(project_response.headers['X-API-Rate-Window'])
-            LOGGER.info('Geni path-to returned %s', project_response.text)
-            try:
-                data = json.loads(project_response.text)
-                project_name = data.get('name')
-                continue_flag = False
-            except ValueError:
-                LOGGER.error("get_geni_project_guids error decoding JSON: %s", project_response)
-        except GeniOAuthError as goae:
-            LOGGER.error('Geni oauth error - %s', goae)
-            token_text = get_refreshed_token(refresh_token)
-            LOGGER.debug('get_refreshed_token returned: %s', token_text)
-            token_response = json.loads(token_text)
-            access_token = new_access_token = token_response['access_token']
-            refresh_token = new_refresh_token = token_response['refresh_token']
-            payload = {'access_token':new_access_token}
-        except requests.exceptions.HTTPError as err:
-            LOGGER.exception('Geni api error %s ', err)
-            continue_flag = False
-        except:     #Catch all errors
-            continue_flag = False
-            LOGGER.exception('Geni api connection error...retrying: ')
     continue_flag = True
-    while continue_flag:
+    url = PROJECT_NAME_URL
+    url = url.replace('{project}', str(project_id))
+    (access_token, refresh_token, project_response) = geni_api_call(access_token, refresh_token, url)
+    if (project_response):
         try:
-            data = {}
-            url = PROJECT_URL
-            url = url.replace('{page}', str(page_number))
-            url = url.replace('{project}', str(project_id))
-            LOGGER.info('get_geni_project_guids with urls: %s', url)
-            project_response = requests.get(url, params=payload)
-            LOGGER.info("Header X-API-Rate-Limit: %s", project_response.headers['X-API-Rate-Limit'])
-            LOGGER.info("Header X-API-Rate-Remaining: %s", project_response.headers['X-API-Rate-Remaining'])
-            LOGGER.info("Header X-API-Rate-Window: %s", project_response.headers['X-API-Rate-Window'])
-            GENI_API_SLEEP_LIMIT = int(project_response.headers['X-API-Rate-Limit'])
-            GENI_API_SLEEP_REMAINING = int(project_response.headers['X-API-Rate-Remaining'])
-            GENI_API_SLEEP_WINDOW = int(project_response.headers['X-API-Rate-Window'])
-            LOGGER.info('Geni path-to returned %s', project_response.text)
+            data = json.loads(project_response.text)
+            project_name = data.get('name')
+        except ValueError:
+            LOGGER.error("get_geni_project_guids error decoding JSON: %s", project_response)
+    # Loop through and build guids
+    retry_count = 0
+    while continue_flag and retry_count < 5:
+        data = {}
+        url = PROJECT_URL
+        url = url.replace('{page}', str(page_number))
+        url = url.replace('{project}', str(project_id))
+        (access_token, refresh_token, project_response) = geni_api_call(access_token, refresh_token, url)
+        if (project_response):
             try:
                 data = json.loads(project_response.text)
-            except ValueError:
-                LOGGER.error("get_geni_project_guids error decoding JSON: %s", project_response)
-            if (project_response.status_code != 200 and data.get('error', False) and data['error']['message'] == 'Rate limit exceeded.'):
-                time.sleep(10)
-            elif (project_response.status_code != 200):
-                continue_flag = False
-            else:
                 total_count = data.get('total_count', 0)
                 for result in data['results']:
                     if (len(guids) <= 200):
@@ -343,23 +178,64 @@ def get_geni_project_guids(access_token, refresh_token, project_id):
                     continue_flag = False
                 else:
                     page_number = page_number + 1
+            except ValueError:
+                LOGGER.error("get_geni_project_guids error decoding JSON: %s", project_response)
+                retry_count = retry_count + 1
+                time.sleep(5)
+
+    return access_token, refresh_token, project_name, guids
+
+def geni_api_call(access_token, refresh_token, url):
+    global GENI_API_SLEEP_REMAINING, GENI_API_SLEEP_WINDOW, GENI_API_SLEEP_LIMIT
+    payload = {'access_token':access_token}
+    if 0 == GENI_API_SLEEP_REMAINING:
+        LOGGER.debug('sleeping before geni api calling')
+        time.sleep(GENI_API_SLEEP_WINDOW)
+        GENI_API_SLEEP_REMAINING = GENI_API_SLEEP_LIMIT
+    continue_flag = True
+    response = None
+    retry_count = 0
+    while (continue_flag and retry_count < 5):
+        try:
+            LOGGER.info('geni_api_call with url: %s', url)
+            response = requests.get(url, params=payload)
+            LOGGER.info("Header X-API-Rate-Limit: %s", response.headers['X-API-Rate-Limit'])
+            LOGGER.info("Header X-API-Rate-Remaining: %s", response.headers['X-API-Rate-Remaining'])
+            LOGGER.info("Header X-API-Rate-Window: %s", response.headers['X-API-Rate-Window'])
+            GENI_API_SLEEP_LIMIT = int(response.headers['X-API-Rate-Limit'])
+            GENI_API_SLEEP_REMAINING = int(response.headers['X-API-Rate-Remaining'])
+            GENI_API_SLEEP_WINDOW = int(response.headers['X-API-Rate-Window'])
+            # check return to be 200 with no rate limiting
+            if (response.status_code == 200):
+                continue_flag = False
+            else:
+                try:
+                    data = json.loads(response.text)
+                    if (data.get('error', False) and data['error']['message'] == 'Rate limit exceeded.'):
+                        retry_count = retry_count + 1
+                        time.sleep(10)
+                except ValueError:
+                    LOGGER.error("geni_api_call error decoding JSON: %s", project_response)
+
         except GeniOAuthError as goae:
             LOGGER.error('Geni oauth error - %s', goae)
             token_text = get_refreshed_token(refresh_token)
             LOGGER.debug('get_refreshed_token returned: %s', token_text)
             token_response = json.loads(token_text)
-            access_token = new_access_token = token_response['access_token']
-            refresh_token = new_refresh_token = token_response['refresh_token']
-            payload = {'access_token':new_access_token}
+            access_token =  token_response['access_token']
+            refresh_token  = token_response['refresh_token']
+            payload = {'access_token':access_token}
+            retry_count = retry_count + 1
+            time.sleep(5)
         except requests.exceptions.HTTPError as err:
             LOGGER.exception('Geni api error %s ', err)
-            continue_flag = False
-        except:     #Catch all errors
-            continue_flag = False
-            LOGGER.exception('Geni api connection error...retrying: ')
-
-    return project_name, guids
-
+            retry_count = retry_count + 1
+            time.sleep(5)
+        except Exception as err:     #Catch all errors
+            LOGGER.exception('Geni api connection error...retrying: %s', err)
+            retry_count = retry_count + 1
+            time.sleep(5)
+    return access_token, refresh_token, response
 
 def invalidate_token(access_token):
     """Invalidate the given access token via the API for logging out"""
