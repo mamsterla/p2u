@@ -114,15 +114,16 @@ def get_profile_obj(profile_response):
 def get_geni_path_to(access_token, refresh_token, source_id, target_id):
     """Get the path to user for this source and target"""
     assert (source_id != target_id), "get_geni_path_to equal ids passed"
-    url = PATH_TO_URL
-    url = url.replace('{source}', source_id)
-    url = url.replace('{target}', target_id)
-    (access_token, refresh_token, path_response) = geni_api_call(access_token, refresh_token, url)
     path_object = {}
-    if (path_response):
-        path_object = get_path_obj(path_response.text)
-        path_object['access_token'] = access_token
-        path_object['refresh_token'] = refresh_token
+    if (len(source_id) > 1 and len(target_id) > 1 and source_id != target_id):
+        url = PATH_TO_URL
+        url = url.replace('{source}', source_id)
+        url = url.replace('{target}', target_id)
+        (access_token, refresh_token, path_response) = geni_api_call(access_token, refresh_token, url)
+        if (path_response):
+            path_object = get_path_obj(path_response.text)
+            path_object['access_token'] = access_token
+            path_object['refresh_token'] = refresh_token
     return path_object
 
 def get_path_obj(path_response):
@@ -133,13 +134,13 @@ def get_path_obj(path_response):
         data = json.loads(path_response)
     except ValueError:
         LOGGER.error("get_path_obj error decoding JSON: %s", path_response)
+        data['status'] = 'API_ERROR'
         return data
     error = data.get('error', False)
     if error and data['error']['type'] == 'OAuthException':
         raise GeniOAuthError(jsoncontents['error']['message'])
     elif error != False:
         data['status'] = 'API_ERROR'
-        return data
 
     return data
 
@@ -211,9 +212,12 @@ def geni_api_call(access_token, refresh_token, url):
             else:
                 try:
                     data = json.loads(response.text)
+                    retry_count = retry_count + 1
                     if (data.get('error', False) and data['error']['message'] == 'Rate limit exceeded.'):
-                        retry_count = retry_count + 1
                         time.sleep(10)
+                    elif (data['error']['type'] == 'ApiException'):
+                        LOGGER.info('ApiException URL:%s message: %s', url, data['error']['message'])
+                        continue_flag = False
                 except ValueError:
                     LOGGER.error("geni_api_call error decoding JSON: %s", project_response)
 

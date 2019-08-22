@@ -173,13 +173,13 @@ def create_p2u_background_job(params):
         while continue_flag:
             data = get_geni_path_to(params['access_token'], params['refresh_token'], params['other_id'], params['target_profile_id'])
             LOGGER.info('Path data returned: %s', str(data))
-            if (str(data['status']) != 'pending'):
+            if (str(data.get('status')) != 'pending'):
                 continue_flag = False
             else:
                 time.sleep(10)
         data['source_id'] = params['other_id']
         data['target_id'] = params['target_profile_id']
-        if (str(data['status']) == 'done'):
+        if (str(data.get('status')) == 'done'):
             params['access_token'] = data['access_token']
             params['refresh_token'] = data['refresh_token']
             # load source and target names
@@ -196,6 +196,8 @@ def create_p2u_background_job(params):
             # TODO - handle error case for API
             sendEmail(params['email'], data)
         else:
+            if (not data.get('status')):
+                data['status'] = 'API Error'
             sendErrorEmail(params['email'], data)
     else:
         data['status'] = 'Source and target profiles cannot be the same'
@@ -316,7 +318,7 @@ def create_sets_background_job(params):
     jobs = []
     for guid in guids:
         params['guid'] = guid
-        job = PQ.enqueue_call(func=create_single_path_background_job, args=(params,), timeout=600)
+        job = PQ.enqueue_call(func=create_single_path_background_job, args=(params,), timeout=6000)
         jobs.append(job)
     continue_flag = True
     # TODO handle error cases like not found paths, etc below
@@ -351,7 +353,7 @@ def create_single_path_background_job(params):
     while continue_flag:
         set_data = get_geni_path_to(params['access_token'], params['refresh_token'], params['other_id'], params['guid'])
         LOGGER.info('Path data returned: %s', str(set_data))
-        if (str(set_data['status']) != 'pending'):
+        if (set_data.get('status') and str(set_data['status']) != 'pending'):
             continue_flag = False
         else:
             time.sleep(10)

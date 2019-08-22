@@ -69,8 +69,8 @@ def prepareErrorHtml(data):
     LOGGER.info('Preparing error html with data: %s', str(data))
     htmlContent = u'<html><body>'
     htmlContent = htmlContent + u'<h3>Hi,</h3><br/>'
-    htmlContent = htmlContent + u'<h5>Your P2U background job had an error. Status:' + data['status'] + u'<br/></h5>'
-    if (data['status'] == 'API_ERROR'):
+    htmlContent = htmlContent + u'<h5>Your P2U background job had an error. Status:' + data.get('status', 'API_ERROR') + u'<br/></h5>'
+    if (data.get('error')):
         htmlContent = htmlContent + u'<br/><h5>Geni returned a message:' + str(data['error']['message']) + '<br/></h5>'
     htmlContent = htmlContent + u'Please visit P2U  <b><a href=\'http://p2u.wnx.com\'>here</a></b>.<br/><br/>'
     htmlContent = htmlContent + u'Thank you,<br/>P2U</body></html>'
