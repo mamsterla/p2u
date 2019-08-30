@@ -173,7 +173,7 @@ def create_p2u_background_job(params):
         while continue_flag:
             data = get_geni_path_to(params['access_token'], params['refresh_token'], params['other_id'], params['target_profile_id'])
             LOGGER.info('Path data returned: %s', str(data))
-            if (str(data.get('status')) != 'pending'):
+            if (data and str(data.get('status','')) != 'pending'):
                 continue_flag = False
             else:
                 time.sleep(10)
@@ -239,7 +239,7 @@ def get_path_to_presidents():
     email = request.args.get('email')
     my_presidents_flag = request.args.get('myPresidents')
     other_id = request.args.get('otherId')
-    return handleSet(email, my_presidents_flag, other_id, president_guids, "Presidents", False)
+    return handleSet(email, my_presidents_flag, other_id, president_guids, "Presidents", "https://www.geni.com/projects/United-States-Presidents-and-Vice-Presidents/9",False)
 
 @APP.route('/getPath2Monarchs')
 def get_path_to_monarchs():
@@ -248,22 +248,26 @@ def get_path_to_monarchs():
     email = request.args.get('email')
     my_monarchs_flag = request.args.get('myMonarchs')
     other_id = request.args.get('otherId')
-    return handleSet(email, my_monarchs_flag, other_id, monarch_guids, "Monarchs", True)
+    return handleSet(email, my_monarchs_flag, other_id, monarch_guids, "Monarchs", "https://www.geni.com/projects/Current-World-Leaders/6177",True)
 
 @APP.route('/getPath2Projects')
 def get_path_to_projects():
     """Call the Path2User functionality of Geni for list based on a project"""
-    LOGGER.debug("get_path_to_monarchs")
+    LOGGER.debug("get_path_to_projects")
     email = request.args.get('email')
     other_id = request.args.get('otherId')
-    my_projects_flag = request.args.get('myProjects')
     project_id = request.args.get('project_id')
-    (session['access_token'], session['refresh_token'], project_name, guids) = get_geni_project_guids(session['access_token'], session['refresh_token'], project_id)
-    return handleSet(email, my_projects_flag, other_id, guids, project_name, True)
+    source_profile_id = request.args.get('sourceProfile')
+    (session['access_token'], session['refresh_token'], project_name, project_url, guids) = get_geni_project_guids(session['access_token'], session['refresh_token'], project_id)
+    LOGGER.info("get_path_to_projects params: email: %s other_id: %s project_id: %s source_profile_id: %s", email, other_id, project_id, source_profile_id)
+    if (source_profile_id is not None and len(source_profile_id) > 2):
+        return handleSet(email, False, source_profile_id, guids, project_name, project_url, True)
+    else:
+        return handleSet(email, True, other_id, guids, project_name, project_url, True)
 
-def handleSet(email, my_flag, other_id, guids, set_name, sort_by_steps):
+def handleSet(email, my_flag, other_id, guids, set_name, set_url, sort_by_steps):
     # handle case where we are implicit
-    if my_flag == 'true':
+    if my_flag:
         (session['access_token'], session['refresh_token'], profile_obj) = get_profile_details(session['access_token'], session['refresh_token'])
         LOGGER.info('handleSet guid found: %s', profile_obj['guid'])
         profile_id = profile_obj['guid']
@@ -276,7 +280,7 @@ def handleSet(email, my_flag, other_id, guids, set_name, sort_by_steps):
             data = {}
             data['backgroundMessage'] = 'This profile access is denied.'
             return jsonify(data)
-            profile_id = profile_data['guid']
+        profile_id = profile_data['guid']
 
     data = {}
     try:
@@ -286,6 +290,7 @@ def handleSet(email, my_flag, other_id, guids, set_name, sort_by_steps):
         params['email'] = email
         params['other_id'] = profile_id
         params['set_name'] = set_name
+        params['set_url'] = set_url
         params['guids'] = guids
         params['sort_by_steps'] = sort_by_steps
         LOGGER.info('handleSet creating background job email %s source %s', email, str(profile_id))
@@ -321,14 +326,22 @@ def create_sets_background_job(params):
         job = PQ.enqueue_call(func=create_single_path_background_job, args=(params,), timeout=6000)
         jobs.append(job)
     continue_flag = True
+    retry_count = 0
+    last_not_finished_count = 0
+    job_count = len(jobs)
     # TODO handle error cases like not found paths, etc below
-    while continue_flag:
+    while continue_flag and retry_count < 360:
         not_finished_count = 0
         for job in jobs:
             if not job.is_finished:
                 not_finished_count = not_finished_count + 1
         if (not_finished_count > 0):
             time.sleep(10)
+            if (not_finished_count != job_count and last_not_finished_count == not_finished_count):
+                retry_count = retry_count + 1
+            else:
+                last_not_finished_count = not_finished_count
+                retry_count = 0
         else:
             continue_flag = False
     for job in jobs:
@@ -336,8 +349,13 @@ def create_sets_background_job(params):
 
     # check whether to sort results
     if (params['sort_by_steps']):
-        data['set_data'] = sorted(data['set_data'], key=itemgetter('step_count'))
+        try:
+            data['set_data'] = sorted(data['set_data'], key=itemgetter('step_count'))
+        except Exception as err:
+            LOGGER.error('Could not sort data: %s', err)
+
     data['set_name'] = params['set_name']
+    data['set_url'] = params['set_url']
     # send results of this set
     sendSetsEmail(params['email'], data)
 
@@ -353,7 +371,7 @@ def create_single_path_background_job(params):
     while continue_flag:
         set_data = get_geni_path_to(params['access_token'], params['refresh_token'], params['other_id'], params['guid'])
         LOGGER.info('Path data returned: %s', str(set_data))
-        if (set_data.get('status') and str(set_data['status']) != 'pending'):
+        if (not set_data.get('status') or (set_data.get('status') and str(set_data['status']) != 'pending')):
             continue_flag = False
         else:
             time.sleep(10)
@@ -367,7 +385,10 @@ def create_single_path_background_job(params):
         set_data['target_id'] = params['guid']
         set_data['step_count'] = 1000
         sendErrorEmail(params['email'], set_data)
-
+    elif (str(set_data['status']) == 'not found'):
+        set_data['source_id'] = params['other_id']
+        set_data['target_id'] = params['guid']
+        set_data['step_count'] = 1000
     if (not set_data.get('step_count')):
         set_data['step_count'] = 1000
     return set_data

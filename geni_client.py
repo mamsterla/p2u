@@ -19,7 +19,7 @@ INVALIDATE_URL = 'https://www.geni.com/platform/oauth/invalidate_token'
 PUBLIC_URL = 'http://www.geni.com/people/private/{guid}'
 OTHERS_URL = 'https://www.geni.com/api/profile-g{guid}'
 PROJECT_URL = 'https://www.geni.com/api/project-{project}/profiles?fields=guid&page={page}'
-PROJECT_NAME_URL = 'https://www.geni.com/api/project-{project}?fields=name'
+PROJECT_NAME_URL = 'https://www.geni.com/api/project-{project}?fields=name,url'
 GENI_API_SLEEP_REMAINING = 50
 GENI_API_SLEEP_LIMIT = 50
 GENI_API_SLEEP_WINDOW = 10
@@ -115,7 +115,7 @@ def get_geni_path_to(access_token, refresh_token, source_id, target_id):
     """Get the path to user for this source and target"""
     assert (source_id != target_id), "get_geni_path_to equal ids passed"
     path_object = {}
-    if (len(source_id) > 1 and len(target_id) > 1 and source_id != target_id):
+    if (source_id.isnumeric() and target_id.isnumeric() and source_id != target_id):
         url = PATH_TO_URL
         url = url.replace('{source}', source_id)
         url = url.replace('{target}', target_id)
@@ -158,6 +158,7 @@ def get_geni_project_guids(access_token, refresh_token, project_id):
         try:
             data = json.loads(project_response.text)
             project_name = data.get('name')
+            project_url = data.get('url')
         except ValueError:
             LOGGER.error("get_geni_project_guids error decoding JSON: %s", project_response)
     # Loop through and build guids
@@ -184,7 +185,7 @@ def get_geni_project_guids(access_token, refresh_token, project_id):
                 retry_count = retry_count + 1
                 time.sleep(5)
 
-    return access_token, refresh_token, project_name, guids
+    return access_token, refresh_token, project_name, project_url, guids
 
 def geni_api_call(access_token, refresh_token, url):
     global GENI_API_SLEEP_REMAINING, GENI_API_SLEEP_WINDOW, GENI_API_SLEEP_LIMIT
@@ -196,7 +197,7 @@ def geni_api_call(access_token, refresh_token, url):
     continue_flag = True
     response = None
     retry_count = 0
-    while (continue_flag and retry_count < 5):
+    while (continue_flag and retry_count < 30):
         try:
             LOGGER.info('geni_api_call with url: %s', url)
             response = requests.get(url, params=payload)
@@ -209,6 +210,8 @@ def geni_api_call(access_token, refresh_token, url):
             # check return to be 200 with no rate limiting
             if (response.status_code == 200):
                 continue_flag = False
+            elif (response.status_code == 429):
+                time.sleep(10)
             else:
                 try:
                     data = json.loads(response.text)
@@ -220,6 +223,7 @@ def geni_api_call(access_token, refresh_token, url):
                         continue_flag = False
                 except ValueError:
                     LOGGER.error("geni_api_call error decoding JSON: %s", project_response)
+                    continue_flag = False
 
         except GeniOAuthError as goae:
             LOGGER.error('Geni oauth error - %s', goae)

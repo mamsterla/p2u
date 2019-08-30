@@ -62,6 +62,19 @@ var UniqueController = function($scope, $rootScope, $http){
     $scope.showTableDataMyProfile = false;
     $scope.showTableDataOtherProfile = false;
     $scope.showTableDataMyPresidents = false;
+		$scope.clearTargetProfile = function($event){
+			$scope.myProjectsForm.sourceProfile = "";
+			$scope.myProjects2Form.sourceProfile = "";
+		};
+
+		$scope.checkMyProjectsFormValid = function() {
+			var result = !($scope.myProjectsForm.$valid || (!$scope.myProjectsForm.checked && $scope.myProjectsForm.email.$valid && typeof $scope.myProjectsForm.project_id !== 'undefined'));
+			return result;
+		}
+		$scope.checkMyProjects2FormValid = function() {
+			var result = !($scope.myProjects2Form.$valid || (!$scope.myProjects2Form.checked && $scope.myProjects2Form.email.$valid && typeof $scope.myProjects2Form.project_id.$valid));
+			return result;
+		}
     $scope.submitMyProfile = function(formId){
         var getFormData = $(formId).serialize();
         $rootScope.formId = formId;
@@ -84,7 +97,7 @@ var UniqueController = function($scope, $rootScope, $http){
 	          }
 					case '#myProjectsForm':
         		var submiProfileAPI = '/getPath2Projects?'+getFormData;
-	          if($scope.myProjectsForm.$valid){
+	          if(!$scope.checkMyProjectsFormValid()){
 	              $scope.loading = true;
 	              $('.loadingMask').show();
 	              callServerGETAPI(httpPromise, submiProfileAPI, showTableData);
@@ -92,7 +105,7 @@ var UniqueController = function($scope, $rootScope, $http){
 						break;
 					case '#myProjects2Form':
         		var submiProfileAPI = '/getPath2Projects?'+getFormData;
-	          if($scope.myProjects2Form.$valid){
+	          if(!$scope.checkMyProjects2FormValid()){
 	              $scope.loading = true;
 	              $('.loadingMask').show();
 	              callServerGETAPI(httpPromise, submiProfileAPI, showTableData);

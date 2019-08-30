@@ -64,3 +64,24 @@ footer hr{border-top: 1px solid #2f4154}
 #Top50Controller ul li.btn.active{background-color: #5dade2 !important;border-color: #5dade2 !important}
 #Top50Controller table td{font-size: 15px;}
 
+.example-show-setup, .example-hide-setup {
+  -webkit-transition:all linear 0.5s;
+  -moz-transition:all linear 0.5s;
+  -ms-transition:all linear 0.5s;
+  -o-transition:all linear 0.5s;
+  transition:all linear 0.5s;
+}
+
+.example-show-setup {
+  opacity:0;
+}
+.example-show-start.example-show-start {
+  opacity:1;
+}
+
+.example-hide-setup {
+  opacity:1;
+}
+.example-hide-start.example-hide-start {
+  opacity:0;
+}

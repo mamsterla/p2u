@@ -95,26 +95,27 @@ def prepareSetsHtml(data):
     LOGGER.info('Preparing html with data: %s', str(data))
     htmlContent = u'<html><body>'
     htmlContent = htmlContent + u'<h3>Hi,</h3><br/>'
-    htmlContent = htmlContent + u'<h5>Your ' + data['set_name'] + ' background job is finished. <br/></h5>'
+    htmlContent = htmlContent + u'<h5>Your <a href="' + data['set_url'] + '">' + data['set_name'] + '</a> background job is finished. <br/></h5>'
     htmlContent = htmlContent + u'<table border="1"><tr><th>Source</th><th>Target</th><th>Relationship<th>Direct</th><th>Steps</th></tr>'
     for set_data in data['set_data']:
         htmlContent = htmlContent + u'<tr><td><a href="' + data['source_url'] + '">' + data['source_name'] + u'</a></td>'
-        if (set_data.get('target_url')):
-            htmlContent = htmlContent + u'<td><a href="' + set_data['target_url'] + '">' + set_data['target_name'] + u'</a></td>'
-        else:
-            htmlContent = htmlContent + u'<td>' + set_data['target_name'] + u'</td>'
-        if (set_data.get('url')):
-            htmlContent = htmlContent + u'<td><a href="'+ str(set_data['url'])+ u'">'
-            htmlContent = htmlContent + u''.join(set_data['relationship'])
-            htmlContent = htmlContent + u'</a></td>'
-            inlaw_distance = set_data.get('inlaw_distance', 0)
-            if (inlaw_distance == 0):
-                direct = "Direct"
+        if (set_data is not None):
+            if (set_data.get('target_url')):
+                htmlContent = htmlContent + u'<td><a href="' + set_data['target_url'] + '">' + set_data['target_name'] + u'</a></td>'
             else:
-                direct = "Indirect by " + str(inlaw_distance)
-            htmlContent = htmlContent + u'<td>' + direct + u'</td><td>' + str(set_data['step_count']) + u'</td></tr>'
-        else:
-            htmlContent = htmlContent + u'<td>No relationship found</td><td>N/A</td><td>N/A</td></tr>'
+                htmlContent = htmlContent + u'<td>' + set_data['target_name'] + u'</td>'
+            if (set_data.get('url')):
+                htmlContent = htmlContent + u'<td><a href="'+ str(set_data['url'])+ u'">'
+                htmlContent = htmlContent + u''.join(set_data['relationship'])
+                htmlContent = htmlContent + u'</a></td>'
+                inlaw_distance = set_data.get('inlaw_distance', 0)
+                if (inlaw_distance == 0):
+                    direct = "Direct"
+                else:
+                    direct = "Indirect by " + str(inlaw_distance)
+                htmlContent = htmlContent + u'<td>' + direct + u'</td><td>' + str(set_data['step_count']) + u'</td></tr>'
+            else:
+                htmlContent = htmlContent + u'<td>No relationship found</td><td>N/A</td><td>N/A</td></tr>'
     htmlContent = htmlContent + '</table><br/><br/>'
     htmlContent = htmlContent + u'Please visit P2U  <b><a href=\'http://p2u.wnx.com\'>here</a></b>.<br/><br/>'
     htmlContent = htmlContent + u'Thank you,<br/>P2U</body></html>'
