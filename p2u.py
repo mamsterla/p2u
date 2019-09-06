@@ -207,7 +207,7 @@ def create_p2u_background_job(params):
 @APP.route('/getProfile', methods=['GET'])
 def get_profile():
     """Handle web navigation to process a profile"""
-    LOGGER.debug("get_profile")
+    LOGGER.info("get_profile")
     access_token = session['access_token']
     refresh_token = session['refresh_token']
     profile_id = request.args.get('profile_id')
@@ -235,7 +235,7 @@ def get_profile():
 @APP.route('/getPath2Presidents')
 def get_path_to_presidents():
     """Call the Path2User functionality of Geni for list of Presidents"""
-    LOGGER.debug("get_path_to_presidents")
+    LOGGER.info("get_path_to_presidents")
     email = request.args.get('email')
     my_presidents_flag = request.args.get('myPresidents')
     other_id = request.args.get('otherId')
@@ -244,7 +244,7 @@ def get_path_to_presidents():
 @APP.route('/getPath2Monarchs')
 def get_path_to_monarchs():
     """Call the Path2User functionality of Geni for list of Monarchs"""
-    LOGGER.debug("get_path_to_monarchs")
+    LOGGER.info("get_path_to_monarchs")
     email = request.args.get('email')
     my_monarchs_flag = request.args.get('myMonarchs')
     other_id = request.args.get('otherId')
@@ -253,7 +253,7 @@ def get_path_to_monarchs():
 @APP.route('/getPath2Projects')
 def get_path_to_projects():
     """Call the Path2User functionality of Geni for list based on a project"""
-    LOGGER.debug("get_path_to_projects")
+    LOGGER.info("get_path_to_projects")
     email = request.args.get('email')
     other_id = request.args.get('otherId')
     project_id = request.args.get('project_id')
@@ -309,13 +309,13 @@ def create_sets_background_job(params):
     global LOGGER
     if LOGGER == None:
         LOGGER = logging.getLogger()
-    LOGGER.debug("create_sets_background_job")
+    LOGGER.info("create_sets_background_job")
 
     data = {}
     data['source_id'] = params['other_id']
     (params['access_token'], params['refresh_token'], source_obj) = get_other_profile(params['access_token'], params['refresh_token'], params['other_id'])
     profile_data = json.loads(source_obj)
-    LOGGER.info('Source profile data returned: %s', source_obj)
+    LOGGER.info('create_sets_background_job Source profile data returned: %s', source_obj)
     data['source_name'] = profile_data.get('name', '(unknown)')
     data['source_url'] = profile_data['profile_url']
     data['set_data'] = []
@@ -329,12 +329,14 @@ def create_sets_background_job(params):
     retry_count = 0
     last_not_finished_count = 0
     job_count = len(jobs)
+    LOGGER.info('create_sets_background_job waiting for %d jobs', job_count)
     # TODO handle error cases like not found paths, etc below
     while continue_flag and retry_count < 360:
         not_finished_count = 0
         for job in jobs:
-            if not job.is_finished:
+            if not (job.is_failed or job.is_finished):
                 not_finished_count = not_finished_count + 1
+        LOGGER.info('create_sets_background_job count: %d not_finished: %d retries: %d', job_count, not_finished_count, retry_count)
         if (not_finished_count > 0):
             time.sleep(10)
             if (not_finished_count != job_count and last_not_finished_count == not_finished_count):
@@ -354,7 +356,7 @@ def create_sets_background_job(params):
         except Exception as err:
             LOGGER.error('Could not sort data: %s', err)
 
-    data['set_name'] = params['set_name']
+    data['set_name'] = params.get('set_name', 'Unknown project')
     data['set_url'] = params['set_url']
     # send results of this set
     sendSetsEmail(params['email'], data)
@@ -364,7 +366,7 @@ def create_single_path_background_job(params):
     global LOGGER
     if LOGGER == None:
         LOGGER = logging.getLogger()
-    LOGGER.debug("create_single_path_background_job")
+    LOGGER.info("create_single_path_background_job")
 
     continue_flag = True
     set_data = {}

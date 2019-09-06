@@ -29,7 +29,7 @@ logging.getLogger("requests").setLevel(logging.WARNING)
 
 def build_auth_url():
     """Create the OAuth url for the application"""
-    LOGGER.debug("buildAuthUrl")
+    LOGGER.info("buildAuthUrl")
     params = {
         'client_id': CLIENT_ID,
         'redirect_uri': REDIRECT_URL
@@ -40,7 +40,7 @@ def build_auth_url():
 
 def get_new_token(code):
     """Get the authorization tokens from OAuth"""
-    LOGGER.debug("get_new_token")
+    LOGGER.info("get_new_token")
 
     params = {
         'client_id': CLIENT_ID,
@@ -55,7 +55,7 @@ def get_new_token(code):
 
 def get_refreshed_token(refresh_token):
     """Refresh an expired token via OAuth"""
-    LOGGER.debug("get_refreshed_token")
+    LOGGER.info("get_refreshed_token")
 
     params = {
         'client_id': CLIENT_ID,
@@ -69,6 +69,7 @@ def get_refreshed_token(refresh_token):
 
 def get_profile_details(access_token, refresh_token):
     """Get the profile details for the logged in account"""
+    LOGGER.info("get_profile_details")
     profile_object = None
     (access_token, refresh_token, profile_response) = geni_api_call(access_token, refresh_token, PROF_URL)
     if (profile_response):
@@ -77,17 +78,19 @@ def get_profile_details(access_token, refresh_token):
 
 def get_other_profile(access_token, refresh_token, guid):
     """Retrieve the profile of the non-logged in user as specified"""
-    LOGGER.debug("get_other_profile")
+    LOGGER.info("get_other_profile")
     url = OTHERS_URL.replace('{guid}', guid)
+    LOGGER.info('get_other_profile: %s', guid)
     (access_token, refresh_token, profile_response) = geni_api_call(access_token, refresh_token, url)
     profile_text = None
     if (profile_response):
         profile_text = profile_response.text
+    LOGGER.info('get_other_profile returned: %s', profile_text)
     return access_token, refresh_token, profile_text
 
 def get_profile_obj(profile_response):
     """Parse the JSON profile response and build return object"""
-    LOGGER.debug("get_profile_obj")
+    LOGGER.info("get_profile_obj")
     data = {}
     try:
         jsoncontents = json.loads(profile_response)
@@ -113,6 +116,7 @@ def get_profile_obj(profile_response):
 
 def get_geni_path_to(access_token, refresh_token, source_id, target_id):
     """Get the path to user for this source and target"""
+    LOGGER.info("get_geni_path_to")
     assert (source_id != target_id), "get_geni_path_to equal ids passed"
     path_object = {}
     if (source_id.isnumeric() and target_id.isnumeric() and source_id != target_id):
@@ -128,7 +132,7 @@ def get_geni_path_to(access_token, refresh_token, source_id, target_id):
 
 def get_path_obj(path_response):
     """Parse the JSON path response and build return object"""
-    LOGGER.debug("get_path_obj")
+    LOGGER.info("get_path_obj")
     data = {}
     try:
         data = json.loads(path_response)
@@ -146,6 +150,7 @@ def get_path_obj(path_response):
 
 def get_geni_project_guids(access_token, refresh_token, project_id):
     """Get the guids for a given project number"""
+    LOGGER.info("get_geni_project_guids")
     page_number = 1
     total_count = 0
     guids = []
@@ -188,10 +193,11 @@ def get_geni_project_guids(access_token, refresh_token, project_id):
     return access_token, refresh_token, project_name, project_url, guids
 
 def geni_api_call(access_token, refresh_token, url):
+    LOGGER.info("geni_api_call")
     global GENI_API_SLEEP_REMAINING, GENI_API_SLEEP_WINDOW, GENI_API_SLEEP_LIMIT
     payload = {'access_token':access_token}
     if 0 == GENI_API_SLEEP_REMAINING:
-        LOGGER.debug('sleeping before geni api calling')
+        LOGGER.info('sleeping before geni api calling')
         time.sleep(GENI_API_SLEEP_WINDOW)
         GENI_API_SLEEP_REMAINING = GENI_API_SLEEP_LIMIT
     continue_flag = True
@@ -208,7 +214,7 @@ def geni_api_call(access_token, refresh_token, url):
             GENI_API_SLEEP_REMAINING = int(response.headers['X-API-Rate-Remaining'])
             GENI_API_SLEEP_WINDOW = int(response.headers['X-API-Rate-Window'])
             # check return to be 200 with no rate limiting
-            if (response.status_code == 200):
+            if (response.status_code == 200 or response.status_code == 403):
                 continue_flag = False
             elif (response.status_code == 429):
                 time.sleep(10)
@@ -228,7 +234,7 @@ def geni_api_call(access_token, refresh_token, url):
         except GeniOAuthError as goae:
             LOGGER.error('Geni oauth error - %s', goae)
             token_text = get_refreshed_token(refresh_token)
-            LOGGER.debug('get_refreshed_token returned: %s', token_text)
+            LOGGER.info('get_refreshed_token returned: %s', token_text)
             token_response = json.loads(token_text)
             access_token =  token_response['access_token']
             refresh_token  = token_response['refresh_token']
@@ -247,7 +253,7 @@ def geni_api_call(access_token, refresh_token, url):
 
 def invalidate_token(access_token):
     """Invalidate the given access token via the API for logging out"""
-    LOGGER.debug("invalidateToken")
+    LOGGER.info("invalidateToken")
     payload = {'access_token':access_token}
     requests.get(INVALIDATE_URL, params=payload)
 

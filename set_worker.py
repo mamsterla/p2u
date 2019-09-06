@@ -1,5 +1,5 @@
 # pylint: disable=line-too-long
-"""Worker creates worker threads that listen to redis queue for jobs to process"""
+"""Set Worker creates worker threads that listen to redis queue for set jobs to process"""
 
 import os, sys, logging, logging.config
 import redis
@@ -43,8 +43,8 @@ except:
     LOGGER.error("redis connection error: %s", sys.exc_info()[0])
 
 if __name__ == '__main__':
-    LOGGER.info("Starting workers")
-    LISTEN = ['p2u_high']
+    LOGGER.info("Starting set workers")
+    LISTEN = ['p2u_default']
 
     with Connection(CONN):
         # qs = map(Queue, LISTEN) or [Queue()]
