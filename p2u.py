@@ -101,7 +101,6 @@ def home():
     token_response = get_new_token(code)
     LOGGER.error('received token_response %s', token_response)
     set_tokens(token_response)
-    print('home just saved into session access token: %s', session['access_token'])
     LOGGER.info('home just saved into session access token: %s', session['access_token'])
     session['current_step'] = 0
     return send_file('templates/index.html')
@@ -172,7 +171,7 @@ def create_p2u_background_job(params):
     if params['other_id'] != params['target_profile_id']:
         while continue_flag:
             data = get_geni_path_to(params['access_token'], params['refresh_token'], params['other_id'], params['target_profile_id'])
-            LOGGER.info('Path data returned: %s', str(data))
+            LOGGER.debug('Path data returned: %s', str(data))
             if (data and str(data.get('status','')) != 'pending'):
                 continue_flag = False
             else:
@@ -207,7 +206,7 @@ def create_p2u_background_job(params):
 @APP.route('/getProfile', methods=['GET'])
 def get_profile():
     """Handle web navigation to process a profile"""
-    LOGGER.info("get_profile")
+    LOGGER.debug("get_profile")
     access_token = session['access_token']
     refresh_token = session['refresh_token']
     profile_id = request.args.get('profile_id')
@@ -235,7 +234,7 @@ def get_profile():
 @APP.route('/getPath2Presidents')
 def get_path_to_presidents():
     """Call the Path2User functionality of Geni for list of Presidents"""
-    LOGGER.info("get_path_to_presidents")
+    LOGGER.debug("get_path_to_presidents")
     email = request.args.get('email')
     my_presidents_flag = request.args.get('myPresidents')
     other_id = request.args.get('otherId')
@@ -244,7 +243,7 @@ def get_path_to_presidents():
 @APP.route('/getPath2Monarchs')
 def get_path_to_monarchs():
     """Call the Path2User functionality of Geni for list of Monarchs"""
-    LOGGER.info("get_path_to_monarchs")
+    LOGGER.debug("get_path_to_monarchs")
     email = request.args.get('email')
     my_monarchs_flag = request.args.get('myMonarchs')
     other_id = request.args.get('otherId')
@@ -253,7 +252,7 @@ def get_path_to_monarchs():
 @APP.route('/getPath2Projects')
 def get_path_to_projects():
     """Call the Path2User functionality of Geni for list based on a project"""
-    LOGGER.info("get_path_to_projects")
+    LOGGER.debug("get_path_to_projects")
     email = request.args.get('email')
     other_id = request.args.get('otherId')
     project_id = request.args.get('project_id')
@@ -309,15 +308,18 @@ def create_sets_background_job(params):
     global LOGGER
     if LOGGER == None:
         LOGGER = logging.getLogger()
-    LOGGER.info("create_sets_background_job")
+    LOGGER.debug("create_sets_background_job")
 
     data = {}
     data['source_id'] = params['other_id']
     (params['access_token'], params['refresh_token'], source_obj) = get_other_profile(params['access_token'], params['refresh_token'], params['other_id'])
-    profile_data = json.loads(source_obj)
     LOGGER.info('create_sets_background_job Source profile data returned: %s', source_obj)
+    if source_obj:
+        profile_data = json.loads(source_obj)
+    else:
+        profile_data = {}
     data['source_name'] = profile_data.get('name', '(unknown)')
-    data['source_url'] = profile_data['profile_url']
+    data['source_url'] = profile_data.get('profile_url', '')
     data['set_data'] = []
     guids = params['guids']
     jobs = []
@@ -334,9 +336,10 @@ def create_sets_background_job(params):
     while continue_flag and retry_count < 360:
         not_finished_count = 0
         for job in jobs:
-            if not (job.is_failed or job.is_finished):
+            if not (job.get_status() == None or job.is_failed or job.is_finished):
+                LOGGER.debug('Not failed or finished status: %s', job.get_status())
                 not_finished_count = not_finished_count + 1
-        LOGGER.info('create_sets_background_job count: %d not_finished: %d retries: %d', job_count, not_finished_count, retry_count)
+        LOGGER.debug('create_sets_background_job count: %d not_finished: %d retries: %d', job_count, not_finished_count, retry_count)
         if (not_finished_count > 0):
             time.sleep(10)
             if (not_finished_count != job_count and last_not_finished_count == not_finished_count):
@@ -366,20 +369,20 @@ def create_single_path_background_job(params):
     global LOGGER
     if LOGGER == None:
         LOGGER = logging.getLogger()
-    LOGGER.info("create_single_path_background_job")
+    LOGGER.debug("create_single_path_background_job")
 
     continue_flag = True
     set_data = {}
     while continue_flag:
         set_data = get_geni_path_to(params['access_token'], params['refresh_token'], params['other_id'], params['guid'])
-        LOGGER.info('Path data returned: %s', str(set_data))
+        LOGGER.debug('Path data returned: %s', str(set_data))
         if (not set_data.get('status') or (set_data.get('status') and str(set_data['status']) != 'pending')):
             continue_flag = False
         else:
             time.sleep(10)
     (params['access_token'], params['refresh_token'], target_text) = get_other_profile(params['access_token'], params['refresh_token'], params['guid'])
     profile_data = json.loads(target_text)
-    LOGGER.info('Target profile data returned: %s', target_text)
+    LOGGER.debug('Target profile data returned: %s', target_text)
     set_data['target_name'] = profile_data['name']
     set_data['target_url'] = profile_data['profile_url']
     if (str(set_data['status']) != 'not found' and str(set_data['status']) != 'done'):
