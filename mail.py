@@ -25,7 +25,7 @@ def sendEmail(toMail, data):
         ret.raise_for_status()
 
 def sendErrorEmail(toMail, data):
-    subject = "ERROR: P2U relationship from " + data['source_id'] + " to " + data['target_id']
+    subject = data.get('subject', "ERROR: P2U relationship from " + data['source_id'] + " to " + data['target_id'])
     htmlContent = prepareErrorHtml(data)
     ret = requests.post(
                         mailgun_url,

@@ -259,10 +259,17 @@ def get_path_to_projects():
     source_profile_id = request.args.get('sourceProfile')
     (session['access_token'], session['refresh_token'], project_name, project_url, guids) = get_geni_project_guids(session['access_token'], session['refresh_token'], project_id)
     LOGGER.info("get_path_to_projects params: email: %s other_id: %s project_id: %s source_profile_id: %s", email, other_id, project_id, source_profile_id)
-    if (source_profile_id is not None and len(source_profile_id) > 2):
-        return handleSet(email, False, source_profile_id, guids, project_name, project_url, True)
+    if (len(guids) > 0):
+        if (source_profile_id is not None and len(source_profile_id) > 2):
+            return handleSet(email, False, source_profile_id, guids, project_name, project_url, True)
+        else:
+            return handleSet(email, True, other_id, guids, project_name, project_url, True)
     else:
-        return handleSet(email, True, other_id, guids, project_name, project_url, True)
+        data['subject'] = "Project " + project_id + " was empty."
+        data['status'] = 'Empty project'
+        data['error'] = {}
+        data['error']['message'] = "Could not process empty project."
+        sendErrorEmail(email, data)
 
 def handleSet(email, my_flag, other_id, guids, set_name, set_url, sort_by_steps):
     # handle case where we are implicit
